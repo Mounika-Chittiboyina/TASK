@@ -1,0 +1,5 @@
+The purpose of this movie recommendation website is to provide users with an interactive platform to discover, explore, and organize movies based on their interests. 
+It allows users to search by title, cast, or keywords, filter movies by genre, and sort them by popularity, rating, or release year. 
+The website also offers detailed information about each movie, including its plot, year, genres, and rating, while giving users the option to mark their favorites for quick access.
+Additionally, it generates personalized recommendations by analyzing the user’s favorite movies and preferred genres. 
+Overall, the website aims to make movie selection easier, more engaging, and tailored to individual preferences.
