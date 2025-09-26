@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Movie Recommendation App</title>
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--muted:#9aa4b2;--accent:#ff6b6b}
+    *{box-sizing:border-box;font-family:Inter,system-ui,Segoe UI,Roboto,'Helvetica Neue',Arial}
+    body{margin:0;background:linear-gradient(180deg,#071028 0%,var(--bg) 100%);color:#e6eef6}
+    .container{max-width:1100px;margin:28px auto;padding:18px}
+    header{display:flex;align-items:center;gap:16px}
+    h1{margin:0;font-size:20px}
+    .controls{display:flex;flex-wrap:wrap;gap:10px;margin:18px 0}
+    .controls input,.controls select{padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.02);color:inherit}
+    .btn{padding:10px 14px;border-radius:8px;border:0;background:var(--accent);color:#fff;cursor:pointer}
+    .layout{display:grid;grid-template-columns:1fr 320px;gap:18px}
+    .card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
+    .movie-card{background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,0.03)}
+    .poster{width:100%;height:320px;background:#0a1624;border-radius:8px;margin-bottom:10px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-weight:600}
+    .meta{display:flex;justify-content:space-between;align-items:center}
+    .genres{font-size:12px;color:var(--muted);margin-top:6px}
+    .sidebar{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,0.03)}
+    .favorites-list{list-style:none;padding:0;margin:0}
+    .favorites-list li{padding:8px 6px;border-bottom:1px dashed rgba(255,255,255,0.03);display:flex;justify-content:space-between;align-items:center}
+    .small{font-size:13px;color:var(--muted)}
+    .modal{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(2,6,23,0.6);visibility:hidden;opacity:0;transition:all .18s}
+    .modal.open{visibility:visible;opacity:1}
+    .modal-card{width:min(780px,96%);background:#071227;padding:18px;border-radius:12px}
+    .modal-card h2{margin:0 0 8px 0}
+    .row{display:flex;gap:12px;align-items:center}
+    .pill{padding:6px 8px;border-radius:999px;background:rgba(255,255,255,0.02);font-size:13px}
+    footer{margin:20px 0;text-align:center;color:var(--muted);font-size:13px}
+    @media(max-width:880px){.layout{grid-template-columns:1fr}.poster{height:220px}}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <img src="" alt="logo" style="width:44px;height:44px;border-radius:8px;background:linear-gradient(90deg,#2b6fb2,#6b2bb2);display:inline-block"/>
+      <div>
+        <h1>Movie Recommendation App</h1>
+        <div class="small">Search, filter, favourite & get tailored recommendations</div>
+      </div>
+    </header>
+
+    <div class="controls">
+      <input id="search" placeholder="Search by title, actor or keyword" />
+      <select id="genreFilter">
+        <option value="all">All genres</option>
+      </select>
+      <select id="sortBy">
+        <option value="popular">Sort: Popular (default)</option>
+        <option value="rating">Sort: Rating (high → low)</option>
+        <option value="year">Sort: Year (new → old)</option>
+      </select>
+      <button class="btn" id="recommendBtn">Recommend for me</button>
+      <button class="btn" id="clearFavs">Clear favorites</button>
+    </div>
+
+    <div class="layout">
+      <main>
+        <section class="card-grid" id="movieGrid">
+          <!-- movie cards injected here -->
+        </section>
+      </main>
+
+      <aside class="sidebar">
+        <h3>Favorites</h3>
+        <ul class="favorites-list" id="favoritesList"></ul>
+        <div style="height:12px"></div>
+        <h4 class="small">Recommendation quick tips</h4>
+        <ul class="small">
+          <li>Use genre filter to narrow results.</li>
+          <li>Click a movie to view details & add to favorites.</li>
+          <li>Recommended list uses rating + genre similarity.</li>
+        </ul>
+      </aside>
+    </div>
+
+    <footer>Made with ♥ — Open this HTML file in a browser. Want backend login or streaming links? Ask me!</footer>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal" id="modal">
+    <div class="modal-card" id="modalCard">
+      <button id="closeModal" style="float:right;background:none;border:0;color:var(--muted);font-size:18px;cursor:pointer">✕</button>
+      <h2 id="modalTitle"></h2>
+      <div class="small" id="modalMeta"></div>
+      <p id="modalPlot" style="margin-top:12px"></p>
+      <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+        <button class="btn" id="favToggle">Add to favorites</button>
+        <div id="modalTags" style="margin-left:8px"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Sample movie dataset. Replace or expand with your own or fetch from an API.
+    const movies = [
+      {id:1,title:'The Grand Escape',year:2023,genres:['Action','Adventure'],rating:8.1,plot:'A thrilling heist across continents.',cast:['A. Kumar','L. Mehta']},
+      {id:2,title:'Silent Whispers',year:2021,genres:['Drama','Romance'],rating:7.4,plot:'Two strangers find solace through letters.',cast:['S. Rao','M. Patel']},
+      {id:3,title:'Neon Nights',year:2024,genres:['Sci-Fi','Thriller'],rating:8.6,plot:'A detective hunts a rogue AI in a neon city.',cast:['R. Singh','E. Kapoor']},
+      {id:4,title:'Family Ties',year:2019,genres:['Comedy','Drama'],rating:7.0,plot:'An extended family copes with sudden changes.',cast:['V. Sharma','D. Iyer']},
+      {id:5,title:'Into the Wilds',year:2020,genres:['Adventure','Documentary'],rating:8.3,plot:'Explorers document a remote mountain range.',cast:['N. Bose']},
+      {id:6,title:'Laugh Riot',year:2018,genres:['Comedy'],rating:6.8,plot:'A rollercoaster of comic mishaps.',cast:['P. Desai']},
+      {id:7,title:'Mystic River',year:2022,genres:['Mystery','Drama'],rating:8.0,plot:'A small town hides a powerful secret.',cast:['H. Rao','L. Khan']},
+      {id:8,title:'Spacebound',year:2025,genres:['Sci-Fi','Adventure'],rating:9.0,plot:'Humanity undertakes its largest voyage yet.',cast:['A. Roy','C. Das']},
+      {id:9,title:'Palette of Memories',year:2017,genres:['Drama','Art'],rating:7.9,plot:'An artist rediscovers passion after loss.',cast:['M. Iyer']},
+      {id:10,title:'Crime Line',year:2024,genres:['Crime','Thriller'],rating:7.8,plot:'A journalist uncovers a citywide conspiracy.',cast:['R. Kaur','S. Jain']}
+    ];
+
+    // DOM refs
+    const movieGrid = document.getElementById('movieGrid');
+    const genreFilter = document.getElementById('genreFilter');
+    const searchInput = document.getElementById('search');
+    const sortBy = document.getElementById('sortBy');
+    const recommendBtn = document.getElementById('recommendBtn');
+    const favoritesList = document.getElementById('favoritesList');
+    const clearFavs = document.getElementById('clearFavs');
+
+    // Modal refs
+    const modal = document.getElementById('modal');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalMeta = document.getElementById('modalMeta');
+    const modalPlot = document.getElementById('modalPlot');
+    const favToggle = document.getElementById('favToggle');
+    let currentMovie = null;
+
+    // Build unique genres
+    const allGenres = new Set();
+    movies.forEach(m=>m.genres.forEach(g=>allGenres.add(g)));
+    [...allGenres].sort().forEach(g=>{
+      const o = document.createElement('option'); o.value = g; o.textContent = g; genreFilter.appendChild(o);
+    });
+
+    // Helper: favorites in localStorage
+    const FAV_KEY = 'movie_app_favs_v1';
+    function getFavs(){ try { return JSON.parse(localStorage.getItem(FAV_KEY))||[] } catch(e){return[]} }
+    function saveFavs(arr){ localStorage.setItem(FAV_KEY, JSON.stringify(arr)) }
+
+    // Render functions
+    function renderMovies(list){ movieGrid.innerHTML='';
+      if(!list.length){ movieGrid.innerHTML='<div class="small">No movies found — try changing filters.</div>'; return }
+      list.forEach(m=>{
+        const card = document.createElement('article'); card.className='movie-card';
+        card.innerHTML = `
+          <div class="poster">${m.title.split(' ').slice(0,2).map(s=>s[0]).join('')} </div>
+          <div>
+            <div class="meta"><strong>${m.title}</strong><div class="small">⭐ ${m.rating} • ${m.year}</div></div>
+            <div class="genres">${m.genres.join(' • ')}</div>
+            <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+              <button class="btn" data-id="${m.id}">Details</button>
+              <button class="pill" data-fav="${m.id}">❤ Fav</button>
+            </div>
+          </div>
+        `;
+        movieGrid.appendChild(card);
+      });
+    }
+
+    function renderFavorites(){ const favs = getFavs(); favoritesList.innerHTML='';
+      if(!favs.length){favoritesList.innerHTML='<li class="small">No favorites yet. Add from the list.</li>'; return}
+      favs.forEach(id=>{
+        const m = movies.find(x=>x.id===id); if(!m) return;
+        const li = document.createElement('li'); li.innerHTML = `<span>${m.title} <span class="small">(${m.year})</span></span><button data-remove="${m.id}" class="pill">remove</button>`;
+        favoritesList.appendChild(li);
+      });
+    }
+
+    // Filtering & sorting
+    function queryMovies(){
+      const q = searchInput.value.trim().toLowerCase();
+      const genre = genreFilter.value;
+      const sort = sortBy.value;
+
+      let res = movies.filter(m=>{
+        const inGenre = genre==='all' || m.genres.includes(genre);
+        const inQuery = !q || m.title.toLowerCase().includes(q) || (m.cast.join(' ').toLowerCase().includes(q)) || (m.plot.toLowerCase().includes(q));
+        return inGenre && inQuery;
+      });
+
+      if(sort==='rating') res.sort((a,b)=>b.rating-a.rating);
+      else if(sort==='year') res.sort((a,b)=>b.year-b.year? b.year - a.year : b.rating - a.rating);
+      else res.sort((a,b)=>b.rating - a.rating); // default popular ~ rating
+
+      return res;
+    }
+
+    // Recommend algorithm (simple): prefer same genre as first favorite or random popular ones
+    function recommend(){
+      const favs = getFavs();
+      let pool = [...movies];
+      if(favs.length){
+        // get most common genre among favorites
+        const favMovies = favs.map(id=>movies.find(m=>m.id===id)).filter(Boolean);
+        const genreCounts = {};
+        favMovies.forEach(m=>m.genres.forEach(g=>genreCounts[g]=(genreCounts[g]||0)+1));
+        const topGenre = Object.entries(genreCounts).sort((a,b)=>b[1]-a[1])[0]?.[0];
+        if(topGenre) pool = pool.filter(m=>m.genres.includes(topGenre));
+      }
+      // sort by rating and pick top 5
+      pool.sort((a,b)=>b.rating-a.rating);
+      const picks = pool.slice(0,5);
+      renderMovies(picks);
+    }
+
+    // Event listeners
+    document.addEventListener('click', (e)=>{
+      const det = e.target.closest('button[data-id]');
+      if(det){ const id = +det.dataset.id; openModal(id); return }
+      const favBtn = e.target.closest('button[data-fav]');
+      if(favBtn){ toggleFav(+favBtn.dataset.fav); return }
+      const rem = e.target.closest('button[data-remove]');
+      if(rem){ const id = +rem.dataset.remove; const arr = getFavs().filter(x=>x!==id); saveFavs(arr); renderFavorites(); return }
+    });
+
+    searchInput.addEventListener('input', ()=> renderMovies(queryMovies()));
+    genreFilter.addEventListener('change', ()=> renderMovies(queryMovies()));
+    sortBy.addEventListener('change', ()=> renderMovies(queryMovies()));
+    recommendBtn.addEventListener('click', recommend);
+    clearFavs.addEventListener('click', ()=>{ saveFavs([]); renderFavorites(); alert('Favorites cleared') });
+
+    // Modal functions
+    function openModal(id){ const m = movies.find(x=>x.id===id); if(!m) return; currentMovie = m; modalTitle.textContent = m.title; modalMeta.textContent = `⭐ ${m.rating} • ${m.year} • ${m.genres.join(', ')}`; modalPlot.textContent = m.plot; modal.classList.add('open');
+      updateFavButton();
+    }
+    document.getElementById('closeModal').addEventListener('click', ()=> modal.classList.remove('open'));
+    modal.addEventListener('click', (ev)=>{ if(ev.target===modal) modal.classList.remove('open') });
+
+    function toggleFav(id){ const f = getFavs(); if(f.includes(id)){ const arr = f.filter(x=>x!==id); saveFavs(arr); } else { f.push(id); saveFavs(f); } renderFavorites(); updateFavButton(); }
+    function updateFavButton(){ const f = getFavs(); if(!currentMovie) return; favToggle.textContent = f.includes(currentMovie.id)? 'Remove from favorites' : 'Add to favorites'; favToggle.onclick = ()=> toggleFav(currentMovie.id); }
+
+    // Init
+    renderMovies(movies.sort((a,b)=>b.rating-a.rating));
+    renderFavorites();
+
+  </script>
+</body>
+</html>
